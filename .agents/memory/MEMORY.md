@@ -1,0 +1,1 @@
+- [OpenAPI zod codegen gotchas](openapi-zod-codegen-gotchas.md) — avoid `format: email` in specs; orval react-query hooks with `enabled` need an explicit `queryKey` too.

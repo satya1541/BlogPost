@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "The Panda Nomad"
+version = "1.0.0"
+id = "artifacts/panda-nomad"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18786
+
+[services.development]
+run = "pnpm --filter @workspace/panda-nomad run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/panda-nomad", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/panda-nomad/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18786"
+BASE_PATH = "/"

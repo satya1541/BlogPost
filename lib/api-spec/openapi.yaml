@@ -1,0 +1,325 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification for The Panda Nomad publication
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: articles
+    description: Article operations
+  - name: topics
+    description: Topic operations
+  - name: series
+    description: Series operations
+  - name: newsletter
+    description: Newsletter operations
+  - name: search
+    description: Search operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /articles:
+    get:
+      operationId: listArticles
+      tags: [articles]
+      summary: List articles
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema: { type: string }
+        - name: series
+          in: query
+          required: false
+          schema: { type: string }
+        - name: tag
+          in: query
+          required: false
+          schema: { type: string }
+        - name: featured
+          in: query
+          required: false
+          schema: { type: boolean }
+        - name: sort
+          in: query
+          required: false
+          schema: { type: string, enum: [newest, oldest, popular] }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          description: List of articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ArticleSummary"
+
+  /articles/{slug}:
+    get:
+      operationId: getArticle
+      tags: [articles]
+      summary: Get article by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Article detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Article"
+        "404":
+          description: Not found
+
+  /articles/{slug}/related:
+    get:
+      operationId: listRelatedArticles
+      tags: [articles]
+      summary: List articles related to an article
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Related articles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ArticleSummary"
+        "404":
+          description: Not found
+
+  /home/featured:
+    get:
+      operationId: getFeaturedArticle
+      tags: [articles]
+      summary: Get the current featured article for the homepage hero
+      responses:
+        "200":
+          description: Featured article
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArticleSummary"
+
+  /topics:
+    get:
+      operationId: listTopics
+      tags: [topics]
+      summary: List topics with article counts
+      responses:
+        "200":
+          description: List of topics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Topic"
+
+  /series:
+    get:
+      operationId: listSeries
+      tags: [series]
+      summary: List all series
+      responses:
+        "200":
+          description: List of series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Series"
+
+  /series/{slug}:
+    get:
+      operationId: getSeries
+      tags: [series]
+      summary: Get a series and its articles
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Series detail with articles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeriesDetail"
+        "404":
+          description: Not found
+
+  /search:
+    get:
+      operationId: searchArticles
+      tags: [search]
+      summary: Search articles by title, excerpt, tag, category, or author
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ArticleSummary"
+
+  /newsletter/subscribe:
+    post:
+      operationId: subscribeNewsletter
+      tags: [newsletter]
+      summary: Subscribe an email to The Panda Nomad Weekly
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewsletterSubscriptionInput"
+      responses:
+        "201":
+          description: Subscribed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewsletterSubscription"
+        "400":
+          description: Invalid input
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ArticleSummary:
+      type: object
+      required:
+        [
+          id,
+          slug,
+          title,
+          excerpt,
+          coverImage,
+          category,
+          tags,
+          author,
+          authorTitle,
+          authorAvatar,
+          publishedDate,
+          readingTimeMinutes,
+          featured,
+          series,
+          views,
+        ]
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        title: { type: string }
+        excerpt: { type: string }
+        coverImage: { type: string }
+        category: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        author: { type: string }
+        authorTitle: { type: string }
+        authorAvatar: { type: string }
+        publishedDate: { type: string, format: date-time }
+        readingTimeMinutes: { type: integer }
+        featured: { type: boolean }
+        series: { type: ["string", "null"] }
+        views: { type: integer }
+
+    Article:
+      allOf:
+        - $ref: "#/components/schemas/ArticleSummary"
+        - type: object
+          required: [content]
+          properties:
+            content:
+              type: string
+
+    Topic:
+      type: object
+      required: [name, slug, articleCount]
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        articleCount: { type: integer }
+
+    Series:
+      type: object
+      required: [name, slug, description, coverImage, articleCount]
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        coverImage: { type: string }
+        articleCount: { type: integer }
+
+    SeriesDetail:
+      allOf:
+        - $ref: "#/components/schemas/Series"
+        - type: object
+          required: [articles]
+          properties:
+            articles:
+              type: array
+              items:
+                $ref: "#/components/schemas/ArticleSummary"
+
+    NewsletterSubscriptionInput:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          minLength: 3
+
+    NewsletterSubscription:
+      type: object
+      required: [id, email, subscribedAt]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        subscribedAt: { type: string, format: date-time }
