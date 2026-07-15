@@ -16,7 +16,7 @@ router.get("/series", async (_req, res): Promise<void> => {
       slug: seriesTable.slug,
       description: seriesTable.description,
       coverImage: seriesTable.coverImage,
-      articleCount: sql<number>`count(${articlesTable.id})::int`,
+      articleCount: sql<number>`count(${articlesTable.id})`,
     })
     .from(seriesTable)
     .leftJoin(articlesTable, eq(articlesTable.series, seriesTable.name))

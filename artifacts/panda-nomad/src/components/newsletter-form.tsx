@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSubscribeNewsletter } from '@workspace/api-client-react';
+import { useSubscribeNewsletter, customFetch } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ArrowRight } from 'lucide-react';
 
@@ -20,6 +20,21 @@ export function NewsletterForm() {
             title: "Subscribed successfully",
             description: "Welcome to The Panda Nomad Weekly.",
           });
+          
+          // Send newsletter_convert analytics event
+          const pathname = window.location.pathname;
+          const slugMatch = pathname.match(/^\/articles\/([^/]+)/);
+          const slug = slugMatch ? slugMatch[1] : "global";
+          
+          customFetch("/api/analytics/track", {
+            method: "POST",
+            body: JSON.stringify({
+              eventType: "newsletter_convert",
+              slug,
+              metadata: { email: email.toLowerCase().trim() }
+            })
+          }).catch(() => {});
+          
           setEmail('');
         },
         onError: () => {

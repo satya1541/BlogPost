@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "dev": "concurrently -c \"cyan,magenta\" \"pnpm --silent run dev:frontend\" \"pnpm --silent run dev:backend\"",
+    "dev:frontend": "cross-env PORT=3000 BASE_PATH=/ pnpm --silent --filter @workspace/panda-nomad run dev",
+    "dev:backend": "cross-env PORT=3001 pnpm --silent --filter @workspace/api-server run dev",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
@@ -13,6 +15,8 @@
     "@replit/connectors-sdk": "^0.4.1"
   },
   "devDependencies": {
+    "concurrently": "^10.0.3",
+    "cross-env": "^10.1.0",
     "prettier": "^3.9.4",
     "typescript": "~5.9.3"
   }

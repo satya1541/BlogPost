@@ -9,7 +9,7 @@ router.get("/topics", async (_req, res): Promise<void> => {
   const rows = await db
     .select({
       name: articlesTable.category,
-      articleCount: sql<number>`count(*)::int`,
+      articleCount: sql<number>`count(*)`,
     })
     .from(articlesTable)
     .groupBy(articlesTable.category)

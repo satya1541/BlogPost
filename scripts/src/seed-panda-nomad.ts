@@ -380,18 +380,18 @@ const articles = [
 async function main() {
   console.log("Seeding series...");
   for (const s of series) {
-    await db.insert(seriesTable).values(s).onConflictDoNothing();
+    await db.insert(seriesTable).ignore().values(s);
   }
 
   console.log("Seeding articles...");
   for (const a of articles) {
     await db
       .insert(articlesTable)
+      .ignore()
       .values({
         ...a,
         publishedDate: new Date(a.publishedDate),
-      })
-      .onConflictDoNothing();
+      });
   }
 
   console.log(`Seeded ${series.length} series and ${articles.length} articles.`);

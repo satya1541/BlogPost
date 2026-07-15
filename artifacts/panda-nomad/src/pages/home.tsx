@@ -63,7 +63,7 @@ export default function Home() {
                   {topics?.map(topic => (
                     <li key={topic.slug}>
                       <Link 
-                        href={`/articles?topic=${topic.slug}`}
+                        href={`/articles?topic=${encodeURIComponent(topic.slug)}`}
                         className="group flex items-center justify-between text-muted-foreground hover:text-accent transition-colors"
                       >
                         <span className="font-medium">{topic.name}</span>

@@ -27,10 +27,14 @@ router.post("/newsletter/subscribe", async (req, res): Promise<void> => {
     return;
   }
 
-  const [subscription] = await db
+  const [result] = await db
     .insert(newsletterSubscriptionsTable)
-    .values({ email })
-    .returning();
+    .values({ email });
+
+  const [subscription] = await db
+    .select()
+    .from(newsletterSubscriptionsTable)
+    .where(eq(newsletterSubscriptionsTable.id, result.insertId));
 
   res.status(201).json(SubscribeNewsletterResponse.parse(subscription));
 });

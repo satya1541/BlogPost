@@ -22,7 +22,7 @@ router.get("/search", async (req, res): Promise<void> => {
         or lower(${articlesTable.excerpt}) like ${term}
         or lower(${articlesTable.category}) like ${term}
         or lower(${articlesTable.author}) like ${term}
-        or exists (select 1 from unnest(${articlesTable.tags}) tag where lower(tag) like ${term})`,
+        or lower(${articlesTable.tags}) like ${term}`,
     )
     .orderBy(desc(articlesTable.publishedDate))
     .limit(30);
