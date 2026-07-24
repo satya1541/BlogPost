@@ -386,9 +386,9 @@ export const getGetFeaturedArticleUrl = () => {
 /**
  * @summary Get the current featured article for the homepage hero
  */
-export const getFeaturedArticle = async ( options?: RequestInit): Promise<ArticleSummary> => {
+export const getFeaturedArticle = async ( options?: RequestInit): Promise<ArticleSummary[]> => {
 
-  return customFetch<ArticleSummary>(getGetFeaturedArticleUrl(),
+  return customFetch<ArticleSummary[]>(getGetFeaturedArticleUrl(),
   {
     ...options,
     method: 'GET'

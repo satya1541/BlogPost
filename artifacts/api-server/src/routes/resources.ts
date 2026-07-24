@@ -129,14 +129,9 @@ router.get("/resources/:slug/download", authMiddleware, async (req: Authenticate
     }
 
     if (resource.isPremium) {
-      if (
-        !req.user ||
-        (req.user.role !== "premium" &&
-          req.user.role !== "admin" &&
-          req.user.role !== "super_admin")
-      ) {
+      if (!req.user) {
         res.status(403).json({
-          message: "Premium membership required to download this resource.",
+          message: "Please log in to download this resource.",
         });
         return;
       }

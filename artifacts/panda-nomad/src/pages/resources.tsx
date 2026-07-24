@@ -99,12 +99,7 @@ export default function Resources() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {resources.map((resource) => {
-          const isLocked =
-            resource.isPremium &&
-            (!user ||
-              (user.role !== "premium" &&
-                user.role !== "admin" &&
-                user.role !== "super_admin"));
+          const isLocked = resource.isPremium && !user;
           return (
             <div
               key={resource.id}
@@ -156,22 +151,18 @@ export default function Resources() {
         })}
       </div>
 
-      {!user ||
-      (user.role !== "premium" &&
-        user.role !== "admin" &&
-        user.role !== "super_admin") ? (
+      {!user ? (
         <div className="mt-16 border border-accent/20 bg-accent/5 p-8 text-center max-w-2xl mx-auto rounded-sm">
           <ShieldAlert className="w-8 h-8 text-accent mx-auto mb-4" />
-          <h3 className="font-serif text-2xl mb-2">Unlock Premium Guides</h3>
+          <h3 className="font-serif text-2xl mb-2">Unlock All Resources</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6 leading-relaxed">
-            Get unlimited access to all checklists, books, and founder toolkits
-            by becoming a Premium Member.
+            Join The Panda Nomad to get instant access to all our toolkits, frameworks, and actionable guides for free.
           </p>
           <Link
-            href="/upgrade"
-            className="inline-block px-6 py-3 bg-primary text-primary-foreground font-medium text-sm hover:bg-accent transition-colors rounded-sm"
+            href="/login"
+            className="inline-block px-6 py-3 bg-accent text-white font-medium text-sm hover:bg-accent/90 transition-colors rounded-sm"
           >
-            Upgrade to Premium
+            Create Free Account
           </Link>
         </div>
       ) : null}

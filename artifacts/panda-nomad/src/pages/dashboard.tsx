@@ -39,7 +39,7 @@ export default function Dashboard() {
       toast({
         title: res.isSubscribed ? "Subscribed" : "Unsubscribed",
         description: res.isSubscribed 
-          ? "You will now receive weekly newsletter essays." 
+          ? "You will now receive weekly newsletter articles." 
           : "You have unsubscribed from the weekly newsletter.",
       });
     } catch {
@@ -86,7 +86,8 @@ export default function Dashboard() {
         }
 
         // Load recently viewed from localStorage
-        const localHistory = localStorage.getItem("recently-viewed");
+        const historyKey = `recently-viewed-${user.id}`;
+        const localHistory = localStorage.getItem(historyKey);
         if (localHistory) {
           try {
             setRecentlyViewed(JSON.parse(localHistory));
@@ -234,7 +235,7 @@ export default function Dashboard() {
         <div className="border border-border p-6 bg-muted/10 flex items-center justify-between rounded-sm">
           <div>
             <p className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-2">
-              Liked Essays
+              Liked Articles
             </p>
             <p className="text-3xl font-serif">{stats?.totalLikes || 0}</p>
           </div>
@@ -350,7 +351,7 @@ export default function Dashboard() {
                     href="/articles"
                     className="text-sm font-medium text-accent hover:underline mt-2 inline-block"
                   >
-                    Explore Essays
+                    Explore Articles
                   </Link>
                 </div>
               )}
@@ -359,7 +360,7 @@ export default function Dashboard() {
             {/* Likes List */}
             <div>
               <h2 className="font-serif text-2xl mb-6 flex items-center gap-2 border-b border-border/40 pb-3">
-                <Heart className="w-5 h-5 text-accent" /> Liked Essays
+                <Heart className="w-5 h-5 text-accent" /> Liked Articles
               </h2>
               {likes.length > 0 ? (
                 <div className="space-y-6">
@@ -386,7 +387,7 @@ export default function Dashboard() {
               ) : (
                 <div className="border border-dashed border-border p-8 text-center bg-muted/5 rounded-sm">
                   <p className="text-sm text-muted-foreground">
-                    No liked essays yet.
+                    No liked articles yet.
                   </p>
                 </div>
               )}
@@ -515,7 +516,7 @@ export default function Dashboard() {
                 <Mail className="w-5 h-5 text-accent" /> Digest Subscriptions
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                Manage your preferences for weekly essays and announcements.
+                Manage your preferences for weekly articles and announcements.
               </p>
               <div className="flex items-center justify-between text-sm mb-6">
                 <span className="font-medium text-foreground">Weekly Digest</span>

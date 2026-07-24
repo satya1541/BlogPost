@@ -221,12 +221,12 @@ router.post("/articles/:slug/summarize", async (req, res): Promise<void> => {
     res.json({ summary: text });
   } catch (error) {
     console.error("Gemini AI error:", error);
-    res.status(500).json({ error: "Failed to generate AI summary." });
+    res.status(500).json({ error: "AI summary is not available at the moment, please try again later." });
   }
 });
 
 router.get("/home/featured", async (_req, res): Promise<void> => {
-  const [article] = await db
+  const articles = await db
     .select()
     .from(articlesTable)
     .where(
@@ -236,24 +236,24 @@ router.get("/home/featured", async (_req, res): Promise<void> => {
       ),
     )
     .orderBy(desc(articlesTable.publishedDate))
-    .limit(1);
+    .limit(6);
 
-  if (!article) {
-    const [fallback] = await db
+  if (articles.length === 0) {
+    const fallback = await db
       .select()
       .from(articlesTable)
       .where(eq(articlesTable.status, "published"))
       .orderBy(desc(articlesTable.publishedDate))
-      .limit(1);
-    if (!fallback) {
-      res.status(404).json({ error: "No articles available" });
+      .limit(3);
+    if (fallback.length === 0) {
+      res.json([]);
       return;
     }
-    res.json(GetFeaturedArticleResponse.parse(fallback));
+    res.json(fallback);
     return;
   }
 
-  res.json(GetFeaturedArticleResponse.parse(article));
+  res.json(articles);
 });
 
 // ─── Analytics Tracking ────────────────────────────

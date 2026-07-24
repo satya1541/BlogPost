@@ -124,11 +124,13 @@ paths:
       summary: Get the current featured article for the homepage hero
       responses:
         "200":
-          description: Featured article
+          description: Featured articles
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ArticleSummary"
+                type: array
+                items:
+                  $ref: "#/components/schemas/ArticleSummary"
 
   /topics:
     get:

@@ -4,6 +4,9 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import { db, articlesTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { uploadToS3, deleteFromS3 } from "../services/s3";
 
 const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
 
@@ -58,7 +61,7 @@ async function generateImageWithGemini(prompt: string): Promise<Buffer> {
   throw new Error("Gemini response did not contain an image");
 }
 
-// Helper to generate and save an image, returns the URL path
+// Helper to generate and save an image to S3, returns the S3 URL
 async function generateAndSaveImage(prompt: string): Promise<string> {
   console.log(`[Imagen 3] Generating image...`);
   console.log(`[Imagen 3] Prompt: ${prompt.substring(0, 100)}...`);
@@ -66,13 +69,8 @@ async function generateAndSaveImage(prompt: string): Promise<string> {
   const buffer = await generateImageWithGemini(prompt);
 
   const filename = `cover_${Date.now()}.png`;
-  const filepath = path.join(UPLOADS_DIR, filename);
-
-  await fs.mkdir(UPLOADS_DIR, { recursive: true });
-  await fs.writeFile(filepath, buffer);
-
-  const coverImage = `/uploads/${filename}`;
-  console.log(`[Imagen 3] Image saved to ${coverImage}`);
+  const coverImage = await uploadToS3(buffer, filename, "image/png");
+  console.log(`[Imagen 3] Image uploaded to S3: ${coverImage}`);
   return coverImage;
 }
 
@@ -95,7 +93,7 @@ function getGeminiModel() {
     throw new Error("GEMINI_API_KEY is not configured in the environment");
   }
   const genAI = new GoogleGenerativeAI(apiKey);
-  return genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+  return genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
 }
 
 function getGroundedGeminiModel() {
@@ -105,19 +103,21 @@ function getGroundedGeminiModel() {
   }
   const genAI = new GoogleGenerativeAI(apiKey);
   return genAI.getGenerativeModel({ 
-    model: "gemini-3.5-flash",
+    model: "gemini-3.6-flash",
     tools: [{ googleSearch: {} } as any]
   });
 }
 
-async function generateWithRetry(model: any, prompt: string, maxRetries = 3) {
+async function generateWithRetry(model: any, prompt: string, maxRetries = 5) {
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await model.generateContent(prompt);
     } catch (error: any) {
-      if (error.status === 503 && i < maxRetries - 1) {
-        console.warn(`[AI] 503 Service Unavailable. Retrying in ${Math.pow(2, i)}s...`);
-        await new Promise(res => setTimeout(res, Math.pow(2, i) * 1000));
+      const isTemporaryError = error.status === 503 || error.status === 429 || (error.message && error.message.includes("503"));
+      if (isTemporaryError && i < maxRetries - 1) {
+        const delay = Math.pow(2, i + 1) * 1000;
+        console.warn(`[AI] Service busy/unavailable (${error.status || '503'}). Retrying in ${delay / 1000}s... (Attempt ${i + 1}/${maxRetries})`);
+        await new Promise(res => setTimeout(res, delay));
       } else {
         throw error;
       }
@@ -340,7 +340,7 @@ Instructions:
       const verifiedFacts = factResult.response.text().trim();
 
       sendEvent("progress", { message: "Writing 1,500-word editorial article..." });
-      console.log(`[AI Blog Writer] Querying Gemini 3.5 Flash for complete article using verified facts...`);
+      console.log(`[AI Blog Writer] Querying Gemini 3.6 Flash for complete article using verified facts...`);
       const model = getGeminiModel();
       const blogPrompt = `You are a master storyteller, a viral content strategist, and an expert senior writer specializing in the field most relevant to the provided topic. Your writing style is incredibly engaging, dynamic, and magnetic—keeping the reader glued to the screen from the first sentence to the last.
 
@@ -392,38 +392,7 @@ Write the highly detailed, semantic HTML (h2, h3, p, strong, blockquote, table, 
       const articleData = JSON.parse(jsonStr);
       articleData.content = parts[1].replace(/```html\s*/g, "").replace(/```\s*/g, "").trim();
 
-      sendEvent("progress", { message: "Generating 8K photorealistic cover image..." });
-      console.log(`[AI Blog Writer] Analyzing the written article to generate a highly accurate image prompt...`);
-      const promptGenModel = getGeminiModel();
-      const imagePromptInstruction = `You are an expert AI image prompt engineer. Read the following blog post about "${topic}".
-Create a highly detailed, photorealistic image-generation prompt that perfectly captures the specific scene, subjects, teams, players, or mood mentioned in the article.
-
-Requirements for the image prompt:
-- Photorealistic, Cinematic lighting, Editorial photography, 8K, Ultra realistic
-- Accurate to the topic and the specific details mentioned in the article
-- NEVER include the names of real people, celebrities, or politicians. Describe them generically (e.g., "a visionary tech CEO", "a young esports athlete") to bypass safety filters.
-- Sharp focus, Natural colors
-- No text, No logos, No watermark, Professional composition, Documentary photography style
-
-Return ONLY the plain text prompt. Do not include markdown, explanations, or introductory text.
-
-Article Content:
-${articleData.content.substring(0, 5000)}`;
-
-      const promptGenResult = await promptGenModel.generateContent(imagePromptInstruction);
-      const highlyAccuratePrompt = promptGenResult.response.text().trim();
-      console.log(`[AI Blog Writer] Generated Image Prompt: ${highlyAccuratePrompt}`);
-
-      const cleanPrompt = highlyAccuratePrompt || (articleData.coverImagePrompt || topic).trim();
-      let coverImage = "";
-
-      try {
-        coverImage = await generateAndSaveImage(cleanPrompt);
-      } catch (imgError: any) {
-        console.error("[AI Blog Writer] Imagen 3 failed:", imgError.message);
-      }
-
-      sendEvent("progress", { message: "Finalizing..." });
+      sendEvent("progress", { message: "Finalizing editorial content..." });
 
       const finalData = {
         title: articleData.title,
@@ -431,8 +400,8 @@ ${articleData.content.substring(0, 5000)}`;
         content: articleData.content,
         category: articleData.category,
         tags: articleData.tags,
-        coverImage,
-        coverImagePrompt: cleanPrompt,
+        coverImage: "",
+        coverImagePrompt: "",
         seo: articleData.seo,
         source: "gemini",
       };
@@ -461,14 +430,18 @@ router.post(
 
     try {
       // 1. Delete old image if provided
-      if (oldImagePath && oldImagePath.startsWith("/uploads/")) {
-        const oldFileName = oldImagePath.replace("/uploads/", "");
-        const oldFilePath = path.join(UPLOADS_DIR, oldFileName);
-        try {
-          await fs.unlink(oldFilePath);
-          console.log(`[AI Image] Deleted old image: ${oldFilePath}`);
-        } catch (e: any) {
-          console.log(`[AI Image] Could not delete old image (might not exist): ${e.message}`);
+      if (oldImagePath) {
+        if (oldImagePath.includes("amazonaws.com") || oldImagePath.includes("blog-post1541")) {
+          await deleteFromS3(oldImagePath);
+        } else if (oldImagePath.startsWith("/uploads/")) {
+          const oldFileName = oldImagePath.replace("/uploads/", "");
+          const oldFilePath = path.join(UPLOADS_DIR, oldFileName);
+          try {
+            await fs.unlink(oldFilePath);
+            console.log(`[AI Image] Deleted old image: ${oldFilePath}`);
+          } catch (e: any) {
+            console.log(`[AI Image] Could not delete old image (might not exist): ${e.message}`);
+          }
         }
       }
 
@@ -496,19 +469,22 @@ router.post(
 
     try {
       // 1. Delete old image if provided
-      if (oldImagePath && oldImagePath.startsWith("/uploads/")) {
-        const oldFileName = oldImagePath.replace("/uploads/", "");
-        const oldFilePath = path.join(UPLOADS_DIR, oldFileName);
-        try {
-          await fs.unlink(oldFilePath);
-          console.log(`[Upload Image] Deleted old image: ${oldFilePath}`);
-        } catch (e: any) {
-          console.log(`[Upload Image] Could not delete old image: ${e.message}`);
+      if (oldImagePath) {
+        if (oldImagePath.includes("amazonaws.com") || oldImagePath.includes("blog-post1541")) {
+          await deleteFromS3(oldImagePath);
+        } else if (oldImagePath.startsWith("/uploads/")) {
+          const oldFileName = oldImagePath.replace("/uploads/", "");
+          const oldFilePath = path.join(UPLOADS_DIR, oldFileName);
+          try {
+            await fs.unlink(oldFilePath);
+            console.log(`[Upload Image] Deleted old image: ${oldFilePath}`);
+          } catch (e: any) {
+            console.log(`[Upload Image] Could not delete old image: ${e.message}`);
+          }
         }
       }
 
       // 2. Process base64
-      // imageBase64 should be something like "data:image/png;base64,iVBORw0KGgo..."
       const matches = imageBase64.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
       if (!matches || matches.length !== 3) {
         res.status(400).json({ message: "Invalid base64 image format" });
@@ -516,20 +492,327 @@ router.post(
       }
 
       const ext = matches[1] === "jpeg" ? "jpg" : matches[1];
+      const mimeType = `image/${ext}`;
       const buffer = Buffer.from(matches[2], "base64");
 
       const filename = `upload_${Date.now()}.${ext}`;
-      const filepath = path.join(UPLOADS_DIR, filename);
+      const coverImage = await uploadToS3(buffer, filename, mimeType);
 
-      await fs.mkdir(UPLOADS_DIR, { recursive: true });
-      await fs.writeFile(filepath, buffer);
-
-      res.json({ coverImage: `/uploads/${filename}` });
+      res.json({ coverImage });
     } catch (error: any) {
       console.error("Image Upload failed:", error);
       res.status(500).json({ message: error.message || "Image upload failed" });
     }
   },
+);
+
+// ─── Public Web Image Search Helper ───────────────────────
+async function fetchPublicWebImages(query: string): Promise<Array<{ url: string; thumbnail: string; title: string }>> {
+  const images: Array<{ url: string; thumbnail: string; title: string }> = [];
+
+  // 1. Google Custom Search API (if credentials configured)
+  const googleApiKey = process.env.GOOGLE_CUSTOM_SEARCH_KEY || process.env.GEMINI_API_KEY;
+  const googleCx = process.env.GOOGLE_CX;
+
+  if (googleApiKey && googleCx) {
+    try {
+      const googleRes = await fetch(
+        `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${googleCx}&searchType=image&q=${encodeURIComponent(query)}&num=8`
+      );
+      if (googleRes.ok) {
+        const data = (await googleRes.json()) as any;
+        if (data.items && Array.isArray(data.items)) {
+          for (const item of data.items) {
+            images.push({
+              url: item.link,
+              thumbnail: item.image?.thumbnailLink || item.link,
+              title: item.title || query,
+            });
+          }
+          if (images.length >= 4) return images;
+        }
+      }
+    } catch (err: any) {
+      console.warn("[Web Images] Google Custom Search failed:", err.message);
+    }
+  }
+
+  // 2. Unsplash Public NAPI Search
+  try {
+    const unsplashRes = await fetch(
+      `https://unsplash.com/napi/search/photos?query=${encodeURIComponent(query)}&per_page=8`
+    );
+    if (unsplashRes.ok) {
+      const data = (await unsplashRes.json()) as any;
+      if (data.results && Array.isArray(data.results)) {
+        for (const item of data.results) {
+          images.push({
+            url: item.urls?.regular || item.urls?.full || item.urls?.small,
+            thumbnail: item.urls?.small || item.urls?.thumb,
+            title: item.alt_description || item.description || query,
+          });
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn("[Web Images] Unsplash search failed:", err.message);
+  }
+
+  // 3. Wikimedia Commons Public Image Search
+  if (images.length < 4) {
+    try {
+      const wikiRes = await fetch(
+        `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&format=json&prop=imageinfo&iiprop=url&gsrlimit=8`
+      );
+      if (wikiRes.ok) {
+        const data = (await wikiRes.json()) as any;
+        if (data.query?.pages) {
+          const pages = Object.values(data.query.pages) as any[];
+          for (const page of pages) {
+            const info = page.imageinfo?.[0];
+            if (info?.url && !info.url.endsWith(".svg")) {
+              images.push({
+                url: info.url,
+                thumbnail: info.url,
+                title: page.title ? page.title.replace(/^File:/, "") : query,
+              });
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn("[Web Images] Wikimedia search failed:", err.message);
+    }
+  }
+
+  return images;
+}
+
+// ─── Route: Search Web Images ─────────────────────────────
+router.post(
+  "/ai/search-images",
+  authMiddleware,
+  requireAdmin,
+  async (req: AuthenticatedRequest, res) => {
+    const { query } = req.body;
+    if (!query) {
+      res.status(400).json({ message: "Search query is required" });
+      return;
+    }
+
+    try {
+      const images = await fetchPublicWebImages(query);
+      res.json({ images });
+    } catch (error: any) {
+      console.error("Search Web Images failed:", error);
+      res.status(500).json({ message: error.message || "Failed to search images" });
+    }
+  },
+);
+
+// ─── Route: Select & Download Web Image ───────────────────
+router.post(
+  "/ai/select-web-image",
+  authMiddleware,
+  requireAdmin,
+  async (req: AuthenticatedRequest, res) => {
+    const { imageUrl, oldImagePath } = req.body;
+    if (!imageUrl) {
+      res.status(400).json({ message: "Image URL is required" });
+      return;
+    }
+
+    try {
+      // 1. Delete old image if provided
+      if (oldImagePath) {
+        if (oldImagePath.includes("amazonaws.com") || oldImagePath.includes("blog-post1541")) {
+          await deleteFromS3(oldImagePath);
+        } else if (oldImagePath.startsWith("/uploads/")) {
+          const oldFileName = oldImagePath.replace("/uploads/", "");
+          const oldFilePath = path.join(UPLOADS_DIR, oldFileName);
+          try {
+            await fs.unlink(oldFilePath);
+          } catch (e) {}
+        }
+      }
+
+      // 2. Fetch and upload web image to AWS S3
+      const response = await fetch(imageUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      });
+
+      if (!response.ok) {
+        res.json({ coverImage: imageUrl });
+        return;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const contentType = response.headers.get("content-type") || "image/jpeg";
+      let ext = "jpg";
+      if (contentType.includes("png")) ext = "png";
+      else if (contentType.includes("webp")) ext = "webp";
+      else if (contentType.includes("jpeg") || contentType.includes("jpg")) ext = "jpg";
+
+      const filename = `web_${Date.now()}.${ext}`;
+      const coverImage = await uploadToS3(buffer, filename, contentType);
+
+      res.json({ coverImage });
+    } catch (error: any) {
+      console.error("Select Web Image failed:", error);
+      res.json({ coverImage: imageUrl });
+    }
+  },
+);
+
+// ─── AI: Generate Daily Hero Articles (Cron/Manual) ────────
+export async function runDailyHeroGeneration(sendEvent?: (event: string, data?: any) => void) {
+  const sportsTopic = Math.random() > 0.5 ? "Football recent matches and trends (exclusively football, no cricket)" : "Cricket recent matches and trends (exclusively cricket, no football)";
+  const topicsList = [
+    { name: "Artificial Intelligence globally", category: "Artificial Intelligence" },
+    { name: "Entrepreneurship and startups (India or Global)", category: "Entrepreneurship" },
+    { name: "Corporate Leadership and management trends (India)", category: "Leadership" },
+    { name: sportsTopic, category: "Sports" },
+    { name: "Latest bestselling books, publishing trends, or major book releases", category: "Books" },
+    { name: "Technology news and developments (India)", category: "Technology" },
+    { name: "Business news and trends (India)", category: "Business" },
+    { name: "Finance and markets (India or Global)", category: "Finance" },
+    { name: "Productivity tips and frameworks (India or Global)", category: "Productivity" },
+    { name: "Psychology insights and behavioral trends (India)", category: "Psychology" },
+    { name: "Philosophy discussions or thought pieces (India or Global)", category: "Philosophy" },
+    { name: "Life advice, lifestyle, and wellbeing (Global or India)", category: "Life" },
+    { name: "Esports tournaments, teams, and gaming news (India)", category: "Esports" },
+    { name: "Investing strategies, markets, and news (India or Global)", category: "Investing" },
+    { name: "Career advice, job market trends, and growth (India)", category: "Career" },
+    { name: "Health & Fitness trends and tips (India)", category: "Health & Fitness" },
+    { name: "Innovative Ideas and thought experiments (India or Global)", category: "Ideas" },
+    { name: "Society & Culture trends and discussions (India)", category: "Society & Culture" },
+    { name: "In-depth business or situational Case Studies (India)", category: "Case Studies" }
+  ];
+
+  const generatedArticles = [];
+  
+  if (sendEvent) sendEvent("progress", { message: `Starting generation of ${topicsList.length} articles...` });
+
+  for (let i = 0; i < topicsList.length; i++) {
+    const t = topicsList[i];
+    if (sendEvent) sendEvent("progress", { message: `Generating [${i+1}/${topicsList.length}]: ${t.category}...` });
+    console.log(`[Daily Cron] Processing topic ${i+1}/${topicsList.length}: ${t.category}`);
+
+    try {
+      // 1. Gather Grounded Facts
+      const groundedModel = getGroundedGeminiModel();
+      const factPrompt = `Search the web for the absolute latest, breaking news or major recent developments regarding: ${t.name}. Provide a dense, factual bulleted summary of exactly what happened, dates, and key figures. Do not hallucinate.`;
+      const factResult = await generateWithRetry(groundedModel, factPrompt);
+      const verifiedFacts = factResult.response.text().trim();
+
+      // 2. Write Article
+      const model = getGeminiModel();
+      const blogPrompt = `You are a premium editorial journalist for "The Panda Nomad".
+Write a highly engaging, thought-leadership article based strictly on these latest facts:
+${verifiedFacts}
+
+[OUTPUT FORMAT]
+You must output your response in TWO distinct parts, separated by the exact string "===CONTENT_START===".
+
+PART 1: JSON Metadata
+{
+  "title": "Punchy, attention-grabbing headline (under 70 chars)",
+  "excerpt": "2 sentence hook excerpt.",
+  "category": "${t.category}",
+  "tags": ["news", "latest", "${t.category.toLowerCase()}"],
+  "seo": {
+      "metaTitle": "SEO title",
+      "metaDescription": "SEO description",
+      "focusKeyword": "keyword",
+      "slug": "url-friendly-slug-daily-${Date.now()}"
+  }
+}
+
+===CONTENT_START===
+
+PART 2: HTML Article
+Write the highly detailed, semantic HTML (h2, h3, p, strong) article here.`;
+
+      const blogResult = await generateWithRetry(model, blogPrompt);
+      const parts = blogResult.response.text().split("===CONTENT_START===");
+      if (parts.length < 2) throw new Error("Invalid output format");
+
+      const articleData = JSON.parse(parts[0].replace(/```json\s*/g, "").replace(/```\s*/g, "").trim());
+      articleData.content = parts[1].replace(/```html\s*/g, "").replace(/```\s*/g, "").trim();
+
+      // 3. Generate Image Prompt & Image
+      const promptGenModel = getGeminiModel();
+      let imgPrompt = articleData.title || sportsTopic;
+      try {
+        const imgPromptRes = await generateWithRetry(promptGenModel, `Create a photorealistic, 8K image prompt without any text or real people names for this article: ${articleData.content.substring(0, 1000)}`);
+        imgPrompt = imgPromptRes.response.text().trim();
+      } catch (pErr: any) {
+        console.warn("[Daily Cron] Image prompt generation failed, falling back to article title:", pErr.message);
+      }
+      const coverImage = await generateAndSaveImage(imgPrompt);
+
+      // 4. Save to DB
+      const newArticle = {
+        slug: articleData.seo?.slug || `daily-${t.category.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`,
+        title: articleData.title,
+        excerpt: articleData.excerpt,
+        content: articleData.content,
+        coverImage,
+        category: articleData.category,
+        tags: articleData.tags || [],
+        author: "PandaAI Daily",
+        authorTitle: "Automated News Desk",
+        authorAvatar: "/panda-ai-logo.png",
+        publishedDate: new Date(),
+        readingTimeMinutes: Math.ceil((articleData.content.split(" ").length || 1000) / 200),
+        status: "published",
+        featured: true, // Will be set to true
+        views: 0
+      };
+
+      generatedArticles.push(newArticle);
+    } catch (e: any) {
+      console.error(`[Daily Cron] Failed to generate for topic ${t.category}:`, e.message);
+      if (sendEvent) sendEvent("error", { message: `Failed on ${t.category}: ${e.message}` });
+    }
+  }
+
+  // 5. Unfeature old, feature new
+  if (generatedArticles.length > 0) {
+    if (sendEvent) sendEvent("progress", { message: "Updating database to rotate hero slider..." });
+    await db.update(articlesTable).set({ featured: false });
+    for (const article of generatedArticles) {
+      await db.insert(articlesTable).values(article);
+    }
+  }
+
+  if (sendEvent) sendEvent("complete", { generatedCount: generatedArticles.length });
+  return generatedArticles;
+}
+
+router.post(
+  "/ai/cron/generate-daily-hero",
+  authMiddleware,
+  requireAdmin,
+  async (req: AuthenticatedRequest, res) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    const sendEvent = (event: string, data?: any) => {
+      res.write(`data: ${JSON.stringify({ event, ...data })}\n\n`);
+    };
+
+    try {
+      await runDailyHeroGeneration(sendEvent);
+      res.end();
+    } catch (err: any) {
+      sendEvent("error", { message: err.message });
+      res.end();
+    }
+  }
 );
 
 export default router;

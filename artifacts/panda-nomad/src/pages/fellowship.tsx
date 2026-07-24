@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Award, ShieldCheck, Check, Send, Sparkles } from "lucide-react";
+import { Award, ShieldCheck, Check, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "../context/AuthContext";
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, Calendar, MapPin, Award, Check } from "lucide-react";
+import { Calendar, MapPin, Award, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Summit() {
@@ -24,7 +24,7 @@ export default function Summit() {
         <div className="absolute inset-0 bg-gradient-to-r from-accent/5 via-transparent to-accent/5 opacity-50" />
         <div className="relative z-10 space-y-6">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-accent/15 rounded-full text-accent text-xs font-semibold uppercase tracking-widest">
-            <Sparkles className="w-3.5 h-3.5" /> Annual Summit
+            <img src="/logo.png" alt="Panda" className="w-4 h-4 object-contain" /> Annual Summit
           </span>
           <h1 className="font-serif text-4xl md:text-6xl font-light tracking-tight">
             The Panda Nomad <span className="italic text-accent">Summit 2026</span>

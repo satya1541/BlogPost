@@ -71,7 +71,7 @@ export default function BuildInPublic() {
       icon: <Hammer className="w-5 h-5" />,
       status: "current",
       summary: "Building the custom blog platform engine.",
-      description: "Currently engineering the core Vite + Express + Drizzle MySQL application. We are implementing robust authentication, bookmarking, essay streams, and the resource download directory.",
+      description: "Currently engineering the core Vite + Express + Drizzle MySQL application. We are implementing robust authentication, bookmarking, article streams, and the resource download directory.",
       metrics: ["Vite frontend running", "MySQL database synchronized", "Auth session flow complete"],
       tools: ["React", "Express", "Drizzle ORM", "MySQL"],
       milestones: [
@@ -87,7 +87,7 @@ export default function BuildInPublic() {
       icon: <Award className="w-5 h-5" />,
       status: "planned",
       summary: "Opening the doors to all readers.",
-      description: "Launching the production application, unlocking the first 10 essays, loading the initial resource toolkit checklist downloads, and opening up the community discussion forums.",
+      description: "Launching the production application, unlocking the first 10 articles, loading the initial resource toolkit checklist downloads, and opening up the community discussion forums.",
       metrics: ["Target: 5,000 active readers", "Goal: 20 base articles published"],
       tools: ["Vercel", "Render", "Postgres/MySQL Prod Cluster"],
       milestones: [
@@ -102,7 +102,7 @@ export default function BuildInPublic() {
       icon: <Clock className="w-5 h-5" />,
       status: "planned",
       summary: "Integrating paywalls, subscriptions, and advanced features.",
-      description: "Adding Stripe/Razorpay payment portals to unlock exclusive essays, introducing automated reading streak achievements, and launching community discussion boards.",
+      description: "Adding Stripe/Razorpay payment portals to unlock exclusive articles, introducing automated reading streak achievements, and launching community discussion boards.",
       metrics: ["Target: $5k MRR", "Target: 50+ premium toolkits"],
       tools: ["Stripe", "Redis", "Cron Scheduling"],
       milestones: [

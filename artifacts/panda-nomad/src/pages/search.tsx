@@ -33,7 +33,7 @@ export default function Search() {
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search essays, topics, or authors..."
+            placeholder="Search articles, topics, or authors..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full bg-transparent border-b-2 border-border py-6 pl-14 pr-12 text-3xl md:text-4xl font-serif outline-none focus:border-accent transition-colors placeholder:text-muted-foreground/50"

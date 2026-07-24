@@ -33,15 +33,15 @@ export default function Articles() {
     if (topic) return `Topic: ${topic.charAt(0).toUpperCase() + topic.slice(1)}`;
     if (tag) return `Tag: #${tag}`;
     if (series) return `Series`;
-    return 'All Essays';
+    return 'All Articles';
   }, [topic, tag, series]);
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-20 animate-in fade-in duration-500">
       <header className="mb-16 border-b border-border pb-8 flex flex-col md:flex-row md:items-end justify-between gap-8">
         <div>
-          <h1 className="font-serif text-4xl lg:text-5xl mb-4">{title}</h1>
-          <p className="text-muted-foreground max-w-xl text-lg">
+          <h1 className="font-serif font-extrabold text-4xl lg:text-5xl tracking-tight mb-3 text-foreground">{title}</h1>
+          <p className="text-muted-foreground max-w-xl text-base font-sans">
             Explore our complete archive of thoughts, analyses, and perspectives.
           </p>
         </div>

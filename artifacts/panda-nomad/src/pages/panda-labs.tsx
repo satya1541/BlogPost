@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Plus, ArrowUp, ArrowDown, Send, X, Lightbulb } from "lucide-react";
+import { Plus, ArrowUp, ArrowDown, Send, X, Lightbulb } from "lucide-react";
 import { customFetch } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "../context/AuthContext";

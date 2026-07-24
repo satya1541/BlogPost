@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Tv, X, Sparkles, BookOpen } from "lucide-react";
+import { Play, Tv, X, BookOpen } from "lucide-react";
 
 interface Video {
   id: number;
@@ -47,13 +47,13 @@ export default function Videos() {
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 max-w-6xl animate-in fade-in duration-700">
       <div className="text-center mb-16">
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-accent/10 rounded-full text-accent text-xs font-semibold uppercase tracking-widest mb-4">
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-700/10 rounded-full text-red-700 dark:text-red-500 text-xs font-bold uppercase tracking-widest mb-4">
           <Tv className="w-3.5 h-3.5" /> Videos
         </div>
-        <h1 className="font-serif text-4xl md:text-5xl font-light mb-4">
-          Premium <span className="italic text-accent">Video Lessons</span>
+        <h1 className="font-serif font-extrabold text-4xl md:text-5xl mb-4 tracking-tight">
+          Premium <span className="italic text-red-700 dark:text-red-500">Video Lessons</span>
         </h1>
-        <p className="mt-4 text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+        <p className="mt-4 text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed font-sans">
           Unlock high-fidelity screen-shares and developer walk-throughs covering database schemas, UI frameworks, and product design secrets.
         </p>
       </div>
@@ -85,11 +85,11 @@ export default function Videos() {
             {/* Info */}
             <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
               <div className="space-y-2">
-                <span className="text-[10px] font-semibold text-accent tracking-widest uppercase block">
+                <span className="text-red-700 dark:text-red-500 font-extrabold text-[11px] uppercase tracking-wider block font-sans">
                   {video.category}
                 </span>
                 <h3
-                  className="font-serif text-lg font-medium text-foreground hover:text-accent cursor-pointer transition-colors"
+                  className="font-serif font-extrabold text-lg text-foreground hover:text-red-700 dark:hover:text-red-400 cursor-pointer transition-colors"
                   onClick={() => setActiveVideo(video)}
                 >
                   {video.title}

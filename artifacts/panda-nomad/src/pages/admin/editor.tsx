@@ -6,7 +6,6 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Save,
   Eye,
-  Sparkles,
   FileSearch,
   Type,
   Zap,
@@ -17,7 +16,10 @@ import {
   AlignLeft,
   Image as ImageIcon,
   Upload,
-  RefreshCw
+  RefreshCw,
+  Search,
+  Globe,
+  X
 } from "lucide-react";
 
 interface AIReview {
@@ -62,6 +64,7 @@ export function AdminEditor() {
   const [featured, setFeatured] = useState(false);
   const [status, setStatus] = useState("draft");
   const [publishedDate, setPublishedDate] = useState("");
+  const [availableSeries, setAvailableSeries] = useState<any[]>([]);
 
   // UI state
   const [saving, setSaving] = useState(false);
@@ -79,21 +82,40 @@ export function AdminEditor() {
   const [excerptLoading, setExcerptLoading] = useState(false);
   const [aiTopic, setAiTopic] = useState("");
   const [fullBlogLoading, setFullBlogLoading] = useState(false);
-  
+
   const [imageRegenerating, setImageRegenerating] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
 
   const [progressModalOpen, setProgressModalOpen] = useState(false);
   const [progressMessage, setProgressMessage] = useState("");
 
+  // Web image search state
+  const [webImageModalOpen, setWebImageModalOpen] = useState(false);
+  const [webSearchQuery, setWebSearchQuery] = useState("");
+  const [webImages, setWebImages] = useState<Array<{ url: string; thumbnail: string; title: string }>>([]);
+  const [webImagesLoading, setWebImagesLoading] = useState(false);
+  const [selectingWebImageUrl, setSelectingWebImageUrl] = useState<string | null>(null);
+
   useEffect(() => {
     if (!authLoading) {
       if (!user) navigate("/login");
       else if (user.role !== "admin" && user.role !== "super_admin")
         navigate("/");
-      else if (editId) loadArticle(parseInt(editId, 10));
+      else {
+        fetchSeries();
+        if (editId) loadArticle(parseInt(editId, 10));
+      }
     }
   }, [user, authLoading, editId]);
+
+  const fetchSeries = async () => {
+    try {
+      const data = await customFetch<any[]>("/api/cms/series");
+      setAvailableSeries(data);
+    } catch {
+      console.error("Failed to load series");
+    }
+  };
 
   const loadArticle = async (id: number) => {
     try {
@@ -212,7 +234,7 @@ export function AdminEditor() {
     }
   };
 
-  // ─── AI Actions ────────────────────────────
+  // ─── PandaAI Actions ────────────────────────────
   const suggestTitles = async () => {
     if (!content.trim()) {
       toast({ title: "Write some content first", variant: "destructive" });
@@ -230,9 +252,9 @@ export function AdminEditor() {
       setSuggestedTitles(data.titles);
       if (data.source === "fallback") {
         toast({
-          title: "AI Unavailable",
+          title: "PandaAI Unavailable",
           description:
-            "Using fallback suggestions. Add GEMINI_API_KEY for AI-powered titles.",
+            "Using fallback suggestions. Add GEMINI_API_KEY for PandaAI-powered titles.",
         });
       }
     } catch {
@@ -332,9 +354,9 @@ export function AdminEditor() {
       toast({ title: "Generating new image...", description: "This might take a few seconds." });
       const data = await customFetch<{ coverImage: string }>("/api/ai/regenerate-image", {
         method: "POST",
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           prompt: coverImagePrompt || title || aiTopic,
-          oldImagePath: coverImage 
+          oldImagePath: coverImage
         }),
       });
       setCoverImage(data.coverImage);
@@ -368,9 +390,9 @@ export function AdminEditor() {
         try {
           const data = await customFetch<{ coverImage: string }>("/api/ai/upload-image", {
             method: "POST",
-            body: JSON.stringify({ 
+            body: JSON.stringify({
               imageBase64: base64data,
-              oldImagePath: coverImage 
+              oldImagePath: coverImage
             }),
           });
           setCoverImage(data.coverImage);
@@ -390,54 +412,111 @@ export function AdminEditor() {
     }
   };
 
+  const handleOpenWebImageSearch = () => {
+    const query = title.trim() || aiTopic.trim() || category.trim() || "editorial news";
+    setWebSearchQuery(query);
+    setWebImageModalOpen(true);
+    handleSearchWebImages(query);
+  };
+
+  const handleSearchWebImages = async (queryStr?: string) => {
+    const q = (queryStr !== undefined ? queryStr : webSearchQuery).trim();
+    if (!q) return;
+    setWebImagesLoading(true);
+    try {
+      const token = localStorage.getItem("session_token");
+      const res = await fetch("/api/ai/search-images", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ query: q }),
+      });
+      if (!res.ok) throw new Error("Failed to search web images");
+      const data = await res.json();
+      setWebImages(data.images || []);
+    } catch (err: any) {
+      toast({ title: "Image Search Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setWebImagesLoading(false);
+    }
+  };
+
+  const handleSelectWebImage = async (imgUrl: string) => {
+    setSelectingWebImageUrl(imgUrl);
+    try {
+      const token = localStorage.getItem("session_token");
+      const res = await fetch("/api/ai/select-web-image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ imageUrl: imgUrl, oldImagePath: coverImage }),
+      });
+      if (!res.ok) throw new Error("Failed to select web image");
+      const data = await res.json();
+      setCoverImage(data.coverImage);
+      setWebImageModalOpen(false);
+      toast({ title: "Cover image set successfully!" });
+    } catch (err: any) {
+      setCoverImage(imgUrl);
+      setWebImageModalOpen(false);
+      toast({ title: "Cover image set!" });
+    } finally {
+      setSelectingWebImageUrl(null);
+    }
+  };
+
   const handleGenerateFullBlog = async () => {
     if (!aiTopic.trim()) return;
     setFullBlogLoading(true);
     setProgressModalOpen(true);
-    setProgressMessage("Initializing AI Writer...");
+    setProgressMessage("Initializing PandaAI Writer...");
     try {
       toast({
-        title: "Initiating AI Writer",
-        description: "Connecting to AI generation stream...",
+        title: "Initiating PandaAI Writer",
+        description: "Connecting to PandaAI generation stream...",
       });
       const token = localStorage.getItem("session_token");
       const response = await fetch("/api/ai/write-full-blog", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
         body: JSON.stringify({ topic: aiTopic }),
       });
-      
+
       if (!response.ok) {
         let errMessage = `Error ${response.status}: ${response.statusText}`;
         try {
           const errData = await response.json();
           if (errData.message) errMessage = errData.message;
-        } catch(e) {}
+        } catch (e) { }
         throw new Error(errMessage);
       }
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      
+
       if (!reader) throw new Error("Failed to read stream");
-      
+
       let finalData = null;
       let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         buffer += decoder.decode(value, { stream: true });
-        
+
         let boundary = buffer.indexOf("\n\n");
         while (boundary !== -1) {
           const line = buffer.slice(0, boundary);
           buffer = buffer.slice(boundary + 2);
-          
+
           if (line.startsWith("data: ")) {
             const dataStr = line.substring(6);
             if (dataStr.trim()) {
@@ -462,7 +541,7 @@ export function AdminEditor() {
       if (finalData) {
         const data = finalData;
         setTitle(data.title || aiTopic);
-        
+
         // If we got SEO metadata, save it and use its slug
         if (data.seo) {
           setSeo(data.seo);
@@ -470,14 +549,14 @@ export function AdminEditor() {
         } else {
           if (!editId) setSlug(autoSlug(data.title || aiTopic));
         }
-        
+
         setContent(data.content || "");
         setExcerpt(data.excerpt || "");
         setCategory(data.category || "");
         setTagsInput(Array.isArray(data.tags) ? data.tags.join(", ") : "");
         setCoverImage(data.coverImage || "");
         setCoverImagePrompt(data.coverImagePrompt || "");
-        
+
         toast({
           title: "Success",
           description: "Blog post content, SEO, and cover image loaded into editor.",
@@ -517,7 +596,7 @@ export function AdminEditor() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="bg-card border shadow-xl rounded-xl p-8 max-w-sm w-full text-center">
             <Loader2 className="w-12 h-12 animate-spin mx-auto text-primary mb-6" />
-            <h3 className="text-xl font-semibold mb-2 text-foreground">AI is Working</h3>
+            <h3 className="text-xl font-semibold mb-2 text-foreground">PandaAI is Working</h3>
             <p className="text-muted-foreground font-medium">{progressMessage}</p>
           </div>
         </div>
@@ -538,13 +617,12 @@ export function AdminEditor() {
               {editId ? "Edit Article" : "New Article"}
             </span>
             <span
-              className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                status === "published"
-                  ? "bg-emerald-100 text-emerald-700"
-                  : status === "scheduled"
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-amber-100 text-amber-700"
-              }`}
+              className={`text-xs px-2 py-0.5 rounded-full font-medium ${status === "published"
+                ? "bg-emerald-100 text-emerald-700"
+                : status === "scheduled"
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-amber-100 text-amber-700"
+                }`}
             >
               {status}
             </span>
@@ -565,9 +643,9 @@ export function AdminEditor() {
             <button
               onClick={() => setAiPanelOpen(!aiPanelOpen)}
               className={`p-2 border transition-colors ${aiPanelOpen ? "border-accent text-accent bg-accent/5" : "border-border hover:bg-muted"}`}
-              title="AI Assistant"
+              title="PandaAI Assistant"
             >
-              <Sparkles className="w-4 h-4" />
+              <img src="/panda-ai-logo.png" alt="PandaAI" className="w-8 h-8 object-contain" />
             </button>
             <button
               onClick={() => handleSave()}
@@ -644,12 +722,12 @@ export function AdminEditor() {
                     onClick={generateExcerpt}
                     disabled={excerptLoading}
                     className="absolute top-2 right-2 p-1.5 text-muted-foreground hover:text-accent transition-colors"
-                    title="AI-generate excerpt"
+                    title="PandaAI-generate excerpt"
                   >
                     {excerptLoading ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <Sparkles className="w-3.5 h-3.5" />
+                      <img src="/panda-ai-logo.png" alt="PandaAI" className="w-10 h-10 object-contain" />
                     )}
                   </button>
                 </div>
@@ -719,6 +797,23 @@ export function AdminEditor() {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">
+                      Series
+                    </label>
+                    <select
+                      value={series}
+                      onChange={(e) => setSeries(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-border/50 bg-background focus:outline-none focus:border-accent transition-colors"
+                    >
+                      <option value="">None</option>
+                      {availableSeries.map((s) => (
+                        <option key={s.id} value={s.slug}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">
                       Tags (comma-separated)
                     </label>
                     <input
@@ -763,16 +858,26 @@ export function AdminEditor() {
                           placeholder="Image URL or generate one..."
                           className="w-full px-3 py-2 text-sm border border-border/50 bg-background focus:outline-none focus:border-accent transition-colors"
                         />
-                        
+
                         <div className="flex flex-wrap gap-2">
                           <button
                             onClick={handleRegenerateImage}
                             disabled={imageRegenerating || (!title.trim() && !aiTopic.trim())}
                             className="flex items-center gap-2 px-3 py-1.5 border border-border/50 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50"
-                            title="Generate a new AI image"
+                            title="Generate a new PandaAI image"
                           >
                             <RefreshCw className={`w-4 h-4 ${imageRegenerating ? "animate-spin" : ""}`} />
-                            {coverImage ? "Generate Another" : "Generate Image"}
+                            {coverImage ? "Generate AI Image" : "Generate Image"}
+                          </button>
+
+                          <button
+                            onClick={handleOpenWebImageSearch}
+                            disabled={webImagesLoading || selectingWebImageUrl !== null}
+                            className="flex items-center gap-2 px-3 py-1.5 border border-border/50 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50 text-primary font-semibold"
+                            title="Search public web images on Google"
+                          >
+                            <Search className="w-4 h-4 text-accent" />
+                            Find on Google
                           </button>
 
                           <button
@@ -783,9 +888,9 @@ export function AdminEditor() {
                             <Upload className="w-4 h-4" />
                             Upload Image
                           </button>
-                          <input 
-                            type="file" 
-                            ref={fileInputRef} 
+                          <input
+                            type="file"
+                            ref={fileInputRef}
                             onChange={handleUploadImage}
                             accept="image/*"
                             className="hidden"
@@ -848,27 +953,27 @@ export function AdminEditor() {
             )}
           </div>
 
-          {/* ─── AI Assistant Sidebar ─── */}
+          {/* ─── PandaAI Assistant Sidebar ─── */}
           {aiPanelOpen && (
             <div className="lg:col-span-4 space-y-6">
               <div className="sticky top-20 space-y-6 max-h-[85vh] overflow-y-auto pr-1">
                 <div className="border border-accent/20 bg-accent/5 p-5">
                   <h3 className="flex items-center gap-2 font-serif text-lg mb-1">
-                    <Sparkles className="w-5 h-5 text-accent" />
-                    AI Assistant
+                    <img src="/panda-ai-logo.png" alt="PandaAI" className="w-12 h-12 object-contain" />
+                    PandaAI Assistant
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    Powered by Gemini · Use AI to polish your writing.
+                    Powered by Gemini · Use PandaAI to polish your writing.
                   </p>
                 </div>
 
-                {/* Write Entire Blog by AI */}
+                {/* Write Entire Blog by PandaAI */}
                 <div className="border border-accent/20 bg-accent/5 p-5 space-y-4 rounded-sm">
                   <h4 className="font-serif text-sm font-semibold flex items-center gap-2 text-accent">
-                    <Sparkles className="w-4 h-4" /> Write Entire Blog with AI
+                    <img src="/panda-ai-logo.png" alt="PandaAI" className="w-12 h-12 object-contain" /> Write Entire Blog with PandaAI
                   </h4>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Enter a topic or title. The AI will search Google News, draft a complete article, choose categories/tags, and design a custom AI cover image.
+                    Enter a topic or title. PandaAI will search Google News, draft a complete article, choose categories/tags, and design a custom PandaAI cover image.
                   </p>
                   <div className="space-y-3">
                     <input
@@ -890,7 +995,7 @@ export function AdminEditor() {
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-3.5 h-3.5" />
+                          <img src="/panda-ai-logo.png" alt="PandaAI" className="w-12 h-12 object-contain" />
                           <span>Generate Full Blog Post</span>
                         </>
                       )}
@@ -1040,6 +1145,110 @@ export function AdminEditor() {
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Web Image Search Modal */}
+          {webImageModalOpen && (
+            <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-card border border-border w-full max-w-3xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+                {/* Modal Header */}
+                <div className="px-6 py-4 border-b border-border/40 flex items-center justify-between bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-accent" />
+                    <h3 className="font-semibold text-lg">Find Cover Image on Google / Web</h3>
+                  </div>
+                  <button
+                    onClick={() => setWebImageModalOpen(false)}
+                    className="p-1 hover:bg-muted rounded-md transition-colors"
+                  >
+                    <X className="w-5 h-5 text-muted-foreground" />
+                  </button>
+                </div>
+
+                {/* Search Bar */}
+                <div className="p-4 border-b border-border/30 bg-background">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSearchWebImages();
+                    }}
+                    className="flex gap-2"
+                  >
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={webSearchQuery}
+                        onChange={(e) => setWebSearchQuery(e.target.value)}
+                        placeholder="Search for relevant images..."
+                        className="w-full pl-9 pr-4 py-2 text-sm border border-border/50 bg-background focus:outline-none focus:border-accent transition-colors"
+                      />
+                      <Search className="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground" />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={webImagesLoading}
+                      className="px-4 py-2 bg-accent text-accent-foreground font-medium text-sm hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {webImagesLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                      Search
+                    </button>
+                  </form>
+                </div>
+
+                {/* Results Grid */}
+                <div className="p-6 overflow-y-auto flex-1">
+                  {webImagesLoading ? (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-accent mb-3" />
+                      <p className="text-sm text-muted-foreground">Searching public web images for "{webSearchQuery}"...</p>
+                    </div>
+                  ) : webImages.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <p>No web images found for "{webSearchQuery}".</p>
+                      <p className="text-xs mt-1">Try a different search term above.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {webImages.map((img, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => handleSelectWebImage(img.url)}
+                          className="group relative aspect-video bg-muted border border-border/50 rounded-md overflow-hidden cursor-pointer hover:border-accent transition-all hover:shadow-md"
+                        >
+                          <img
+                            src={img.thumbnail || img.url}
+                            alt={img.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-background/0 group-hover:bg-background/40 transition-colors flex items-center justify-center">
+                            <span className="opacity-0 group-hover:opacity-100 text-xs font-semibold px-3 py-1.5 bg-accent text-accent-foreground rounded-md shadow-md transition-opacity">
+                              Select Image
+                            </span>
+                          </div>
+                          {selectingWebImageUrl === img.url && (
+                            <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                              <Loader2 className="w-6 h-6 animate-spin text-accent" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-3 border-t border-border/40 bg-muted/20 flex justify-between items-center text-xs text-muted-foreground">
+                  <span>Click any image to set it as your article cover photo.</span>
+                  <button
+                    onClick={() => setWebImageModalOpen(false)}
+                    className="px-3 py-1 border border-border text-foreground hover:bg-muted"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             </div>

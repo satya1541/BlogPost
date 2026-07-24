@@ -142,10 +142,10 @@ router.put("/auth/onboarding", requireAuth, async (req: AuthenticatedRequest, re
       .update(usersTable)
       .set({
         displayName: name || null,
-        age: age ? parseInt(age, 10) : null,
-        occupation: occupation || null,
+        ...(age ? { age: parseInt(age, 10) } : {}),
+        ...(occupation ? { occupation } : {}),
         onboardingCompleted: true,
-      })
+      } as any)
       .where(eq(usersTable.id, req.user.id));
 
     if (Array.isArray(interests)) {

@@ -200,7 +200,7 @@ export function AdminDashboard() {
           <PenTool className="w-8 h-8 text-muted-foreground group-hover:text-accent transition-colors" />
           <span className="text-sm font-medium">New Article</span>
           <span className="text-xs text-muted-foreground text-center">
-            AI-powered markdown editor
+            PandaAI-powered markdown editor
           </span>
         </Link>
         <Link

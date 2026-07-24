@@ -5,6 +5,7 @@ import {
   commentsTable,
   usersTable,
   newsletterSubscriptionsTable,
+  seriesTable,
 } from "@workspace/db";
 import { eq, desc, sql, and, count } from "drizzle-orm";
 import { authMiddleware, AuthenticatedRequest } from "../middleware/auth";
@@ -246,6 +247,50 @@ router.delete(
   },
 );
 
+// Toggle featured status for hero slider
+router.patch(
+  "/cms/articles/:id/featured",
+  authMiddleware,
+  requireAdmin,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const articleId = parseInt(req.params.id as string, 10);
+      if (isNaN(articleId)) {
+        res.status(400).json({ message: "Invalid article ID" });
+        return;
+      }
+
+      const [existing] = await db
+        .select()
+        .from(articlesTable)
+        .where(eq(articlesTable.id, articleId))
+        .limit(1);
+
+      if (!existing) {
+        res.status(404).json({ message: "Article not found" });
+        return;
+      }
+
+      const newFeatured = req.body.featured !== undefined ? req.body.featured : !existing.featured;
+
+      await db
+        .update(articlesTable)
+        .set({ featured: newFeatured })
+        .where(eq(articlesTable.id, articleId));
+
+      const [updated] = await db
+        .select()
+        .from(articlesTable)
+        .where(eq(articlesTable.id, articleId))
+        .limit(1);
+
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle featured status" });
+    }
+  },
+);
+
 // Export newsletter subscribers as JSON (for CSV export on frontend)
 router.get(
   "/cms/subscribers",
@@ -312,6 +357,101 @@ router.delete(
       res.json({ message: "Comment deleted" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete comment" });
+    }
+  },
+);
+
+// --- Series Management ---
+
+// List all series (admin view)
+router.get(
+  "/cms/series",
+  authMiddleware,
+  requireAdmin,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const series = await db.select().from(seriesTable).orderBy(seriesTable.name);
+      res.json(series);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch series" });
+    }
+  },
+);
+
+// Create series
+router.post(
+  "/cms/series",
+  authMiddleware,
+  requireAdmin,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const { name, slug, description, coverImage } = req.body;
+      if (!name || !slug || !description) {
+        res.status(400).json({ message: "Name, slug, and description are required" });
+        return;
+      }
+      
+      const [insertResult] = await db.insert(seriesTable).values({
+        name,
+        slug,
+        description,
+        coverImage: coverImage || "",
+      });
+      
+      res.status(201).json({ id: insertResult.insertId, message: "Series created" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create series" });
+    }
+  },
+);
+
+// Update series
+router.put(
+  "/cms/series/:id",
+  authMiddleware,
+  requireAdmin,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const seriesId = parseInt(req.params.id as string, 10);
+      if (isNaN(seriesId)) {
+        res.status(400).json({ message: "Invalid series ID" });
+        return;
+      }
+      const { name, slug, description, coverImage } = req.body;
+      
+      await db.update(seriesTable)
+        .set({
+          ...(name && { name }),
+          ...(slug && { slug }),
+          ...(description && { description }),
+          ...(coverImage !== undefined && { coverImage }),
+        })
+        .where(eq(seriesTable.id, seriesId));
+        
+      res.json({ message: "Series updated" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update series" });
+    }
+  },
+);
+
+// Delete series
+router.delete(
+  "/cms/series/:id",
+  authMiddleware,
+  requireAdmin,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const seriesId = parseInt(req.params.id as string, 10);
+      if (isNaN(seriesId)) {
+        res.status(400).json({ message: "Invalid series ID" });
+        return;
+      }
+      
+      await db.delete(seriesTable).where(eq(seriesTable.id, seriesId));
+      res.json({ message: "Series deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete series" });
     }
   },
 );

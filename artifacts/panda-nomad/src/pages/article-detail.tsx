@@ -11,7 +11,7 @@ import {
 import { format } from 'date-fns';
 import { ArticleCard } from '../components/article-card';
 import { NewsletterForm } from '../components/newsletter-form';
-import { Twitter, Linkedin, Link as LinkIcon, List, Heart, Bookmark, Sparkles } from 'lucide-react';
+import { Twitter, Linkedin, Link as LinkIcon, List, Heart, Bookmark } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '../context/AuthContext';
 
@@ -31,10 +31,10 @@ export default function ArticleDetail() {
   });
   const { toast } = useToast();
   const { user } = useAuth();
-  
+
   const [toc, setToc] = useState<TocItem[]>([]);
   const [contentWithIds, setContentWithIds] = useState<string>('');
-  
+
   const [likesInfo, setLikesInfo] = useState<{ totalLikes: number; liked: boolean }>({ totalLikes: 0, liked: false });
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
@@ -53,11 +53,11 @@ export default function ArticleDetail() {
     if (slug) {
       customFetch<{ totalLikes: number; liked: boolean }>(`/api/articles/${slug}/likes`)
         .then(setLikesInfo)
-        .catch(() => {});
+        .catch(() => { });
 
       customFetch<any[]>(`/api/articles/${slug}/comments`)
         .then(setComments)
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [slug]);
 
@@ -65,7 +65,7 @@ export default function ArticleDetail() {
     if (slug && user) {
       customFetch<{ bookmarked: boolean }>(`/api/articles/${slug}/bookmark`)
         .then(data => setIsBookmarked(data.bookmarked))
-        .catch(() => {});
+        .catch(() => { });
     } else {
       setIsBookmarked(false);
     }
@@ -75,7 +75,8 @@ export default function ArticleDetail() {
     if (!article) return;
 
     // 1. History tracking
-    const localHistory = localStorage.getItem("recently-viewed");
+    const historyKey = `recently-viewed-${user?.id || 'guest'}`;
+    const localHistory = localStorage.getItem(historyKey);
     let historyList = [];
     if (localHistory) {
       try {
@@ -89,7 +90,7 @@ export default function ArticleDetail() {
       title: article.title,
       slug: article.slug,
     });
-    localStorage.setItem("recently-viewed", JSON.stringify(historyList.slice(0, 10)));
+    localStorage.setItem(historyKey, JSON.stringify(historyList.slice(0, 10)));
 
     // 2. Dynamic SEO Injection
     const prevTitle = document.title;
@@ -106,7 +107,7 @@ export default function ArticleDetail() {
       }
       const prevContent = meta.getAttribute('content');
       meta.setAttribute('content', content);
-      
+
       return () => {
         if (created) {
           meta.remove();
@@ -179,7 +180,7 @@ export default function ArticleDetail() {
         schemaScript.textContent = prevSchema;
       }
     };
-  }, [article]);
+  }, [article, user]);
 
   // Analytics Tracking Effect
   useEffect(() => {
@@ -195,7 +196,7 @@ export default function ArticleDetail() {
           userAgent: navigator.userAgent,
         },
       }),
-    }).catch(() => {});
+    }).catch(() => { });
 
     // Track scroll_depth and read_complete
     const sentThresholds = new Set<number>();
@@ -218,7 +219,7 @@ export default function ArticleDetail() {
               eventType: "scroll_depth",
               metadata: { scrollPercent: threshold },
             }),
-          }).catch(() => {});
+          }).catch(() => { });
         }
       });
 
@@ -228,7 +229,7 @@ export default function ArticleDetail() {
         customFetch(`/api/articles/${article.slug}/track`, {
           method: "POST",
           body: JSON.stringify({ eventType: "read_complete" }),
-        }).catch(() => {});
+        }).catch(() => { });
       }
     };
 
@@ -333,7 +334,7 @@ export default function ArticleDetail() {
       const parser = new DOMParser();
       const doc = parser.parseFromString(article.content, 'text/html');
       const headings = Array.from(doc.querySelectorAll('h2, h3'));
-      
+
       const tocItems: TocItem[] = headings.map((h, i) => {
         // Add an ID if it doesn't have one
         const id = h.id || `heading-${i}`;
@@ -344,7 +345,7 @@ export default function ArticleDetail() {
           level: h.tagName.toLowerCase() === 'h2' ? 2 : 3
         };
       });
-      
+
       setToc(tocItems);
       setContentWithIds(doc.body.innerHTML);
     }
@@ -393,12 +394,12 @@ export default function ArticleDetail() {
       setAiSummary(data.summary);
       toast({
         title: "Summary generated",
-        description: "AI summary successfully created.",
+        description: "PandaAI summary successfully created.",
       });
     } catch (err: any) {
       toast({
         title: "Error",
-        description: err.message || "Failed to generate AI summary.",
+        description: err.data?.error || err.message || "Failed to generate PandaAI summary.",
         variant: "destructive",
       });
     } finally {
@@ -409,19 +410,19 @@ export default function ArticleDetail() {
   return (
     <article className="animate-in fade-in duration-700 pb-24">
       {/* Header */}
-      <header className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-20 max-w-4xl text-center">
-        <Link href={`/articles?topic=${encodeURIComponent(article.category)}`} className="text-sm font-semibold text-accent tracking-widest uppercase mb-6 inline-block hover:underline">
+      <header className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-16 max-w-4xl text-center">
+        <Link href={`/articles?topic=${encodeURIComponent(article.category)}`} className="text-red-700 dark:text-red-500 font-extrabold text-xs tracking-wider uppercase mb-4 inline-block hover:underline font-sans">
           {article.category}
         </Link>
-        <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl leading-tight mb-8">
+        <h1 className="font-serif font-extrabold text-3xl md:text-5xl lg:text-6xl leading-tight tracking-tight mb-6 text-foreground">
           {article.title}
         </h1>
-        <div className="flex items-center justify-center gap-4 text-muted-foreground text-sm">
+        <div className="flex items-center justify-center gap-4 text-muted-foreground text-xs font-sans">
           {article.authorAvatar && (
-            <img src={article.authorAvatar} alt={article.author} className="w-12 h-12 rounded-full object-cover" />
+            <img src={article.authorAvatar} alt={article.author} className="w-11 h-11 rounded-full object-cover border border-border/40" />
           )}
           <div className="text-left">
-            <p className="font-medium text-foreground">{article.author}</p>
+            <p className="font-bold text-foreground">{article.author}</p>
             <p className="flex items-center gap-2">
               <span>{format(new Date(article.publishedDate), 'MMMM d, yyyy')}</span>
               <span className="w-1 h-1 rounded-full bg-border" />
@@ -435,8 +436,8 @@ export default function ArticleDetail() {
       {article.coverImage && (
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl mb-16">
           <div className="aspect-[21/9] w-full overflow-hidden bg-muted">
-            <img 
-              src={article.coverImage} 
+            <img
+              src={article.coverImage}
               alt={article.title}
               className="w-full h-full object-cover"
             />
@@ -447,7 +448,7 @@ export default function ArticleDetail() {
       {/* Content Grid */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 relative">
-          
+
           {/* Sidebar / Share (Sticky) */}
           <div className="hidden lg:block lg:col-span-3 relative">
             <div className="sticky top-32 flex flex-col gap-10 text-muted-foreground">
@@ -459,11 +460,11 @@ export default function ArticleDetail() {
                   </h4>
                   <ul className="space-y-3 text-sm">
                     {toc.map((item) => (
-                      <li 
-                        key={item.id} 
+                      <li
+                        key={item.id}
                         className={`${item.level === 3 ? 'ml-4 text-muted-foreground/80' : 'text-muted-foreground'}`}
                       >
-                        <a 
+                        <a
                           href={`#${item.id}`}
                           className="hover:text-accent transition-colors line-clamp-2 leading-relaxed"
                           onClick={(e) => {
@@ -487,17 +488,17 @@ export default function ArticleDetail() {
                 <div>
                   <h4 className="text-xs font-semibold text-foreground tracking-widest uppercase mb-4">Interactions</h4>
                   <div className="flex flex-col gap-4">
-                    <button 
-                      onClick={handleLikeToggle} 
+                    <button
+                      onClick={handleLikeToggle}
                       className={`p-3 border rounded-full hover:bg-muted transition-colors flex flex-col items-center justify-center w-12 h-16 ${likesInfo.liked ? 'border-accent text-accent' : 'border-border text-muted-foreground'}`}
                       aria-label="Like article"
                     >
                       <Heart className={`w-5 h-5 ${likesInfo.liked ? 'fill-accent' : ''}`} />
                       <span className="text-[10px] font-semibold mt-1">{likesInfo.totalLikes}</span>
                     </button>
-                    
-                    <button 
-                      onClick={handleBookmarkToggle} 
+
+                    <button
+                      onClick={handleBookmarkToggle}
                       className={`p-3 border rounded-full hover:bg-muted transition-colors flex items-center justify-center w-12 h-12 ${isBookmarked ? 'border-accent text-accent' : 'border-border text-muted-foreground'}`}
                       aria-label="Bookmark article"
                     >
@@ -526,21 +527,16 @@ export default function ArticleDetail() {
 
           {/* Main Content */}
           <div className="lg:col-span-9 xl:col-span-7 prose prose-lg md:prose-xl prose-stone max-w-none">
-            
-            {/* AI Summary Section */}
-            <div className="mb-10 bg-accent/5 border border-accent/20 rounded-md p-6 relative">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-serif text-accent flex items-center gap-2 !m-0">
-                  <motion.div
-                    animate={aiLoading ? { rotate: 360, scale: [1, 1.2, 1] } : {}}
-                    transition={{ repeat: aiLoading ? Infinity : 0, duration: 1.5, ease: "easeInOut" }}
-                  >
-                    <Sparkles className="w-5 h-5" />
-                  </motion.div>
-                  AI Summary
+
+            {/* PandaAI Summary Section */}
+            <div className="not-prose mb-10 bg-accent/5 border border-accent/20 rounded-md p-4 relative">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xl font-serif text-accent flex items-center gap-3 m-0">
+                  <img src="/panda-ai-logo.png" alt="PandaAI" className="w-30 h-30 object-contain" />
+                  PandaAI Summary
                 </h3>
                 {!aiSummary && (
-                  <motion.button 
+                  <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleGenerateSummary}
@@ -553,9 +549,9 @@ export default function ArticleDetail() {
                   </motion.button>
                 )}
               </div>
-              
+
               {aiSummary ? (
-                <motion.div 
+                <motion.div
                   initial="hidden"
                   animate="visible"
                   variants={{
@@ -584,13 +580,13 @@ export default function ArticleDetail() {
                 </motion.div>
               ) : (
                 <p className="text-sm text-muted-foreground m-0">
-                  Too long? Read a quick 3-bullet point AI summary of this article.
+                  Too long? Read a quick 3-bullet point PandaAI summary of this article.
                 </p>
               )}
             </div>
 
             <div dangerouslySetInnerHTML={{ __html: contentWithIds || article.content }} />
-            
+
             {/* Tags */}
             {article.tags && article.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-12 pt-8 border-t border-border">
@@ -601,11 +597,11 @@ export default function ArticleDetail() {
                 ))}
               </div>
             )}
-            
+
             {/* Comments Section */}
             <div className="mt-16 pt-12 border-t border-border">
               <h3 className="font-serif text-3xl mb-8">Comments ({comments.length})</h3>
-              
+
               {/* Comment Input */}
               {user ? (
                 <form onSubmit={handleCommentSubmit} className="mb-10 space-y-4">
@@ -672,7 +668,7 @@ export default function ArticleDetail() {
         <div className="bg-primary text-primary-foreground p-10 md:p-14 text-center">
           <h3 className="font-serif text-3xl mb-4 text-accent">Enjoying the read?</h3>
           <p className="text-primary-foreground/80 mb-8 max-w-md mx-auto">
-            Get essays like this delivered to your inbox every Sunday. No spam, just signal.
+            Get articles like this delivered to your inbox every Sunday. No spam, just signal.
           </p>
           <div className="flex justify-center">
             <NewsletterForm />

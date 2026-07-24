@@ -19,7 +19,7 @@ router.get("/series", async (_req, res): Promise<void> => {
       articleCount: sql<number>`count(${articlesTable.id})`,
     })
     .from(seriesTable)
-    .leftJoin(articlesTable, eq(articlesTable.series, seriesTable.name))
+    .leftJoin(articlesTable, eq(articlesTable.series, seriesTable.slug))
     .groupBy(
       seriesTable.id,
       seriesTable.name,
@@ -51,7 +51,7 @@ router.get("/series/:slug", async (req, res): Promise<void> => {
   const articles = await db
     .select()
     .from(articlesTable)
-    .where(eq(articlesTable.series, series.name))
+    .where(eq(articlesTable.series, series.slug))
     .orderBy(desc(articlesTable.publishedDate));
 
   res.json(

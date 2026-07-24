@@ -2,6 +2,8 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { seedAdminUser } from "./lib/seed-admin";
 import os from "os";
+import cron from "node-cron";
+import { runDailyHeroGeneration } from "./routes/ai";
 
 const rawPort = process.env["PORT"];
 
@@ -62,6 +64,18 @@ app.listen(port, async (err) => {
       console.error("Scheduled publishing runner error:", e);
     }
   }, 60000);
+
+  // Start cron for daily hero generation (Runs at midnight every day)
+  // Disabled per user request - manual generation only
+  // cron.schedule("0 0 * * *", async () => {
+  //   console.log("[Cron] Running daily hero generation...");
+  //   try {
+  //     await runDailyHeroGeneration();
+  //     console.log("[Cron] Daily hero generation completed successfully.");
+  //   } catch (error) {
+  //     console.error("[Cron] Failed to run daily hero generation:", error);
+  //   }
+  // });
 
   console.log();
 });

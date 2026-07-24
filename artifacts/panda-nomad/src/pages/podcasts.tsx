@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Play, Pause, Clock, Volume2, VolumeX, Sparkles, Radio } from "lucide-react";
+import { Play, Pause, Clock, Volume2, VolumeX, Radio } from "lucide-react";
 
 interface Episode {
   id: number;
@@ -59,7 +59,7 @@ export default function Podcasts() {
         audioRef.current?.pause();
         setIsPlaying(false);
       } else {
-        audioRef.current?.play();
+        audioRef.current?.play().catch(e => console.warn('Play interrupted:', e));
         setIsPlaying(true);
       }
     } else {
@@ -67,8 +67,10 @@ export default function Podcasts() {
       setIsPlaying(true);
       // Wait for element to mount/update source
       setTimeout(() => {
-        audioRef.current?.load();
-        audioRef.current?.play();
+        if (audioRef.current) {
+          audioRef.current.load();
+          audioRef.current.play().catch(e => console.warn('Play interrupted:', e));
+        }
       }, 50);
     }
   };

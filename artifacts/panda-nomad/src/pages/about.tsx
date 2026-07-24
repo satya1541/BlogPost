@@ -22,7 +22,7 @@ export default function About() {
             We believe that the best ideas are found at the boundaries between disciplines. An engineer who studies philosophy builds differently. A founder who understands history leads differently.
           </p>
           <p>
-            In a digital landscape optimized for outrage and brief attention spans, we are building a quiet corner optimized for deep thought and lasting insight. We do not chase the news cycle. We publish essays that will be as relevant in five years as they are today.
+            In a digital landscape optimized for outrage and brief attention spans, we are building a quiet corner optimized for deep thought and lasting insight. We do not chase the news cycle. We publish articles that will be as relevant in five years as they are today.
           </p>
 
           <h2>Who This Is For</h2>

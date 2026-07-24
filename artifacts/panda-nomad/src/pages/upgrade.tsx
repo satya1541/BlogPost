@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "../context/AuthContext";
 import { customFetch } from "@workspace/api-client-react";
-import { CheckCircle2, Shield, Zap, Sparkles } from "lucide-react";
+import { CheckCircle2, Shield, Zap } from "lucide-react";
 
 export function Upgrade() {
   const { user, refreshUser } = useAuth();
@@ -35,7 +35,7 @@ export function Upgrade() {
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 max-w-5xl animate-in fade-in duration-700">
       <div className="text-center mb-16">
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-accent/10 rounded-full text-accent text-xs font-semibold uppercase tracking-widest mb-4">
-          <Sparkles className="w-3.5 h-3.5" /> Premium Tiers
+          <img src="/logo.png" alt="Panda" className="w-4 h-4 object-contain" /> Premium Tiers
         </div>
         <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-light mb-4">
           Accelerate your <span className="italic text-accent">Nomad</span> journey
@@ -63,7 +63,7 @@ export function Upgrade() {
             <ul className="space-y-4 text-sm text-muted-foreground border-t border-border/40 pt-6">
               <li className="flex items-start gap-3">
                 <CheckCircle2 className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                <span>Read all public essays</span>
+                <span>Read all public articles</span>
               </li>
               <li className="flex items-start gap-3">
                 <CheckCircle2 className="w-4 h-4 text-accent shrink-0 mt-0.5" />
@@ -125,11 +125,10 @@ export function Upgrade() {
             </div>
           ) : (
             <button
-              onClick={handleUpgrade}
-              disabled={loading}
-              className="mt-8 block w-full py-3 bg-accent text-white font-medium text-sm hover:bg-accent/90 transition-colors disabled:opacity-50"
+              disabled={true}
+              className="mt-8 block w-full py-3 bg-muted text-muted-foreground font-medium text-sm transition-colors cursor-not-allowed"
             >
-              {loading ? "Processing..." : "Upgrade to Premium (Simulated)"}
+              Coming Soon
             </button>
           )}
         </div>

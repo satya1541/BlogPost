@@ -4,7 +4,7 @@ import { Check } from 'lucide-react';
 
 export default function Newsletter() {
   const benefits = [
-    "One deep-dive essay every Sunday morning.",
+    "One deep-dive article every Sunday morning.",
     "Curated links to fascinating reads across the web.",
     "Early access to new series and special projects.",
     "Zero spam. Zero corporate jargon. Just pure signal."
@@ -20,7 +20,7 @@ export default function Newsletter() {
               The Panda Nomad <span className="text-accent italic">Weekly</span>
             </h1>
             <p className="text-xl text-muted-foreground mb-10 leading-relaxed">
-              Join thousands of founders, engineers, and lifelong learners who receive our finest essays directly in their inbox.
+              Join thousands of founders, engineers, and lifelong learners who receive our finest articles directly in their inbox.
             </p>
             
             <div className="bg-muted/30 p-8 border border-border mb-10">

@@ -8,9 +8,9 @@ export default function Series() {
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-20 animate-in fade-in duration-500">
       <header className="mb-20 max-w-3xl border-b border-border pb-10">
-        <h1 className="font-serif text-5xl mb-6">Featured Series</h1>
-        <p className="text-xl text-muted-foreground">
-          Deep dives into complex subjects. Curated collections of essays designed to be read together.
+        <h1 className="font-serif font-extrabold text-4xl lg:text-5xl mb-4 tracking-tight text-foreground">Featured Series</h1>
+        <p className="text-lg text-muted-foreground font-sans">
+          Deep dives into complex subjects. Curated collections of articles designed to be read together.
         </p>
       </header>
 
@@ -31,7 +31,7 @@ export default function Series() {
         <div className="space-y-24">
           {series?.map(s => (
             <div key={s.slug} className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center group">
-              <Link href={`/series/${s.slug}`} className="block overflow-hidden aspect-[16/10] bg-muted">
+              <Link href={`/series/${s.slug}`} className="block overflow-hidden aspect-[16/10] bg-muted rounded-xs border border-border/20">
                 {s.coverImage ? (
                   <img 
                     src={s.coverImage} 
@@ -39,21 +39,21 @@ export default function Series() {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                   />
                 ) : (
-                  <div className="w-full h-full bg-secondary flex items-center justify-center text-muted-foreground font-serif text-2xl">
+                  <div className="w-full h-full bg-secondary flex items-center justify-center text-muted-foreground font-serif font-bold text-2xl">
                     {s.name}
                   </div>
                 )}
               </Link>
               <div>
-                <p className="text-sm font-semibold text-accent tracking-widest uppercase mb-4">
+                <span className="text-red-700 dark:text-red-500 font-extrabold text-xs tracking-wider uppercase mb-2 block font-sans">
                   {s.articleCount} Parts
-                </p>
-                <h2 className="font-serif text-4xl mb-6">
-                  <Link href={`/series/${s.slug}`} className="hover:text-accent transition-colors">
+                </span>
+                <h2 className="font-serif font-extrabold text-3xl lg:text-4xl mb-4">
+                  <Link href={`/series/${s.slug}`} className="hover:text-red-700 dark:hover:text-red-400 transition-colors">
                     {s.name}
                   </Link>
                 </h2>
-                <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
+                <p className="text-base text-muted-foreground mb-6 leading-relaxed font-sans">
                   {s.description}
                 </p>
                 <Link 
